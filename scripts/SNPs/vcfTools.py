@@ -8,11 +8,11 @@ from scipy.stats import binom_test
 
 class VcfRecord:
 	"""
-	
+
 	"""
 	def __init__(self, vcf_line):
 		self.vcf_line = vcf_line.rstrip()
-		
+
 		fields = self.vcf_line.split('\t')
 		self.chrom = fields[0]
 		self.pos = fields[1]
@@ -23,7 +23,7 @@ class VcfRecord:
 		self.filter = fields[6]
 		self.info = fields[7]
 		self.format = fields[8]
-		
+
 		self.genotypes = []
 		self.vcf_annot = False
 		for i in range(9,len(fields)):
@@ -33,7 +33,7 @@ class VcfRecord:
 					self.genotypes.append(fields[i])
 				else:
 					self.vcf_annot = fields[i]
-					
+
 	def is_passing(self,caller):
 		if self.filter == 'PASS':
 			return True
@@ -41,7 +41,7 @@ class VcfRecord:
 			return True
 		else:
 			return False
-			
+
 	def get_variant_type(self,caller,genotype):
 		split_alt = self.alt.split(',')
 		if genotype == '.' or genotype == './.' or genotype == '.|.':
@@ -65,7 +65,7 @@ class VcfRecord:
 				return('INSERTION')
 			else:
 				return('unknown')
-				
+
 	def get_variant_length(self,genotype):
 		if genotype == '.' or genotype == '0' or genotype == '0/0' or genotype == './.' or genotype == '0|0' or genotype == '.|.':
 			return False
@@ -77,10 +77,10 @@ class VcfRecord:
 				return abs(alt_length - ref_length)
 			else:
 				return int(0)
-			
+
 # 	def get_genotype(self,index=0,min_gq=0,min_per_ad=float(0),min_tot_dp=0,return_flags=False):
 # 		genotype = self.genotypes[index]
-# 		parsed_genotype = genotype[0]   
+# 		parsed_genotype = genotype[0]
 # 		parsed_genotype_list = [parsed_genotype,0,0,0]
 # 		### print(parsed_genotype) ####
 # 		try:
@@ -109,7 +109,7 @@ class VcfRecord:
 # 		else:
 # 			parsed_genotype_list[0] = parsed_genotype
 # 			return parsed_genotype_list
-			
+
 	def get_genotype(self,index=0,min_gq=0,min_per_ad=float(0),min_tot_dp=0,het_binom_p=False,return_flags=False):  #### working on function to accomodate hets
 		genotype = self.genotypes[index]
 		parsed_genotype = genotype.split(':')[0]
@@ -159,7 +159,7 @@ class VcfRecord:
 		else:
 			parsed_genotype_list[0] = parsed_genotype
 			return parsed_genotype_list
-	
+
 	def is_het(self,index=0): #### currently works only on biallelic sites
 		het = False
 		genotype = self.genotypes[index]
@@ -168,7 +168,7 @@ class VcfRecord:
 		if '1' in gt_list and '0' in gt_list:
 			het = True
 		return het
-		
+
 	def get_GQ(self,parsed_genotype,index=0):
 		gq = 'Undefined'
 		fields = self.genotypes[index]
@@ -179,7 +179,7 @@ class VcfRecord:
 		except:
 			pass
 		return gq
-		
+
 	def get_percent_AD(self,index=0): #### currently works only on biallelic sites
 		percent_AD = 'Undefined'
 		fields = self.genotypes[index]
@@ -195,7 +195,7 @@ class VcfRecord:
 		except:
 			pass
 		return percent_AD
-		
+
 	def get_AD_binomial_p(self,index=0): #### currently works only on biallelic sites
 		pvalue = False
 		fields = self.genotypes[index]
@@ -210,8 +210,8 @@ class VcfRecord:
 				pvalue = binom_test(int(split_ad[0]), (int(split_ad[1]) + int(split_ad[0])))
 		except:
 			pass
-		return pvalue		
-		
+		return pvalue
+
 	def get_total_DP(self,index=0):
 		total_DP = 'Undefined'
 		fields = self.genotypes[index]
@@ -224,7 +224,7 @@ class VcfRecord:
 		except:
 			pass
 		return total_DP
-		
+
 	def get_GQ_index(self,parsed_genotype):
 		gq_index = 'Undefined'
 		fields = self.format
@@ -247,7 +247,7 @@ class VcfRecord:
 				pass
 		### print(gq_index) ###
 		return gq_index
-		
+
 	def get_AD_index(self):
 		ad_index = 'Undefined'
 		fields = self.format
@@ -257,7 +257,7 @@ class VcfRecord:
 		except:
 			pass
 		return ad_index
-		
+
 	def get_DP_index(self):
 		ad_index = 'Undefined'
 		fields = self.format
@@ -266,14 +266,14 @@ class VcfRecord:
 			ad_index = format_fields.index('DP')
 		except:
 			pass
-		return ad_index	
-	
+		return ad_index
+
 	def get_chrom(self):
 		return self.chrom
 
 	def get_pos(self):
 		return self.pos
-		
+
 	def get_id(self):
 		return self.id
 
@@ -291,11 +291,11 @@ class VcfRecord:
 				split_alt = self.alt.split(',')
 				genotype_end = re.search('(\d+)$',genotype)
 				index = int(genotype_end.group(1))-1
-				return split_alt[index]		
-			
+				return split_alt[index]
+
 	def get_alt_field(self):
 		return self.alt
-			
+
 	def get_snpeff_annot(self, alt):
 		fields = self.info.split(';')
 		for field in fields:
@@ -306,27 +306,27 @@ class VcfRecord:
 					m = re.match('(ANN=)*(\w+)',ann_field)
 					if m.group(2):
 						if m.group(2) == alt:
-							return ann_field.replace('ANN=','')				
+							return ann_field.replace('ANN=','')
 		return False
-		
+
 	def get_snpeff_effect(self, snpeff_annot):
 		try:
 			annot_sections = snpeff_annot.split('|')
 			return annot_sections[1]
 		except:
 			return False
-		
+
 	def get_snpeff_impact(self, snpeff_annot):
 		try:
 			annot_sections = snpeff_annot.split('|')
-			return annot_sections[2]	
+			return annot_sections[2]
 		except:
 			return False
-			
+
 	def get_snpeff_feature(self, snpeff_annot):
 		try:
 			annot_sections = snpeff_annot.split('|')
-			return annot_sections[3]	
+			return annot_sections[3]
 		except:
 			return False
 
@@ -338,7 +338,7 @@ class VcfRecord:
 
 	def get_info(self):
 		return self.info
-		
+
 	def get_AF(self):
 		AF = False
 		fields = self.info.split(';')
@@ -349,7 +349,7 @@ class VcfRecord:
 			except:
 				pass
 		return AF
-		
+
 	def get_QP(self):
 		QP = False
 		fields = self.info.split(';')
@@ -361,7 +361,7 @@ class VcfRecord:
 			except:
 				pass
 		return QP
-				
+
 	def get_MAF_from_QP(self):
 		MAF = False
 		QP = self.get_QP()
@@ -376,13 +376,13 @@ class VcfRecord:
 
 	def get_genotypes_fields(self):
 		return self.genotypes
-		
+
 	def get_genotypes_field(self,sample_index):
 		return self.genotypes[sample_index]
 
 	def get_vcf_annot(self):
 		return self.vcf_annot
-		
+
 	def is_singleton(self):
 		nonzeros = 0
 		last_nonzero_index = False
@@ -395,30 +395,30 @@ class VcfRecord:
 			return str(last_nonzero_index)
 		else:
 			return False
-			
+
 	def is_biallelic(self):
 		split_alt = self.alt.split(',')
 		if len(split_alt) > 1:
 			return False
 		else:
 			return True
-			
+
 	def count_ambig_genotypes(self):
 		ambig = 0
 		for current_genotype in self.genotypes:
 			if current_genotype.split(':')[0] == '.' or current_genotype.split(':')[0] == './.':
 				ambig += 1
 		return ambig
-		
+
 	def get_genotype_profile(self):
 		profile = list()
 		for current_genotype in self.genotypes:
 			profile.append(current_genotype.split(':')[0])
 		return profile
-		
+
 class VcfHeader:
 	"""
-	
+
 	"""
 	def __init__(self, vcf_file):
 		self.samples = []
@@ -428,13 +428,14 @@ class VcfHeader:
 		self.contigs = []
 
 		comment_pattern = re.compile(r"^#")
-		
+
 		with open(vcf_file, 'r') as file:
 			for full_line in file:
 				line = full_line.rstrip()
 				if (re.search(comment_pattern, line)):
 					if (re.match('#CHROM', line)):
 						fields = line.split('\t')
+						print('found chrom')
 						for i in range(9,len(fields)):
 							self.samples.append(fields[i])
 							self.sample_columns[fields[i]] = i
@@ -449,28 +450,24 @@ class VcfHeader:
 						self.contigs.append(m.group(1))
 				else:
 					break
-					
+
 		if self.samples == ['SAMPLE']:
 			self.samples = [vcf_file]
 			self.sample_columns[vcf_file] = 9
 			sys.stderr.write("No sample name in " + vcf_file + ", using file name.\n")
-					
+
 	def get_samples(self):
 		return self.samples
-		
+
 	def get_caller(self):
 		return self.caller
-		
+
 	def get_sample_index(self,sample):
 		index = self.sample_columns[sample]-9
 		return index
-		
+
 	def get_snpeff_status(self):
 		return self.snpeff
-		
+
 	def get_contigs(self):
 		return self.contigs
-	
-
-
-		
