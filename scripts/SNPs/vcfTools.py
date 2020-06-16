@@ -209,7 +209,7 @@ class VcfRecord:
 			pass
 		return gq
 
-	def get_percent_AD_hap(self,index=0): #### currently works only on biallelic sites
+	def get_percent_AD_hap(self,index=0):
 		"""
 		Compute the allele fraction for haploid vcfs. Can account for multiallelic sites.
 		"""
@@ -220,20 +220,20 @@ class VcfRecord:
 
 		try:
 			parsed_genotype = int(genotype.split(':')[0])
-			if int(parsed_genotype)>1:
-				print('Using haploid with multiallelic genotype:')
-				print(int(parsed_genotype))
+			#if int(parsed_genotype)>1:
+			#	print('Using haploid with multiallelic genotype:')
+			#		print(int(parsed_genotype))
 
 			ad_index = self.get_AD_index()
 			ad = gt_fields[ad_index]
 			split_ad = ad.split(',')
-			
-			print(parsed_genotype)
-			print(split_ad)
+
+			#print(parsed_genotype)
+			#print(split_ad)
 			bottom_sum=sum([float(x) for x in split_ad])
 			percent_AD = float(split_ad[parsed_genotype])/bottom_sum
-			print(bottom_sum)
-			print(percent_AD)
+			#print(bottom_sum)
+			#print(percent_AD)
 		except:
 			pass
 		return percent_AD
@@ -499,7 +499,7 @@ class VcfHeader:
 				if (re.search(comment_pattern, line)):
 					if (re.match('#CHROM', line)):
 						fields = line.split('\t')
-						print('found chrom')
+						### print('found chrom') ###
 						for i in range(9,len(fields)):
 							self.samples.append(fields[i])
 							self.sample_columns[fields[i]] = i
