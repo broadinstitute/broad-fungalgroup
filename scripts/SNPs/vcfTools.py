@@ -111,13 +111,30 @@ class VcfRecord:
 # 			return parsed_genotype_list
 
 	def get_genotype(self,index=0,min_gq=0,min_per_ad=float(0),min_tot_dp=0,het_binom_p=False,return_flags=False):  #### working on function to accomodate hets
+		"""
+		Main filtering function. Replaces called GT by . (uncalled) if the variant doesn't pass the required filters.
+		Filters are:
+
+
+		"""
+
 		genotype = self.genotypes[index]
 		parsed_genotype = genotype.split(':')[0]
+
+		#print("The following is the parsed genotype:")
+		#print(parsed_genotype)
+		#print('The following is the genotype:')
+		#print(genotype)
+
+		#Flag that indicates if the sample is diploid.
 		dip_flag = False
  		if len(parsed_genotype) == 3:
  			dip_flag = True
+
+
 		parsed_genotype_list = [parsed_genotype,0,0,0,0]
-		### print(parsed_genotype) ####
+
+		#GQ Filter
 		try:
 			gq = self.get_GQ(parsed_genotype,index)
 			if int(gq) < int(min_gq):
@@ -127,8 +144,15 @@ class VcfRecord:
 				parsed_genotype_list[1] = 1
 		except:
 			pass
+
+		#AD Filter
 		try:
-			percent_ad = self.get_percent_AD(index)
+			#Compute the right allele fraction.
+			if dip_flag == True:
+				percent_ad = self.get_percent_AD_dip(index)
+			else:
+				percent_ad = self.get_percent_AD_hap(index)
+			#Apply the filter
 			if float(percent_ad) < min_per_ad:
 				parsed_genotype = '.'
 				if dip_flag == True:
@@ -136,6 +160,8 @@ class VcfRecord:
 				parsed_genotype_list[2] = 1
 		except:
 			pass
+
+		#Depth coverage filter
 		try:
 			total_dp = self.get_total_DP(index)
 			if int(total_dp) < int(min_tot_dp):
@@ -145,6 +171,8 @@ class VcfRecord:
 				parsed_genotype_list[3] = 1
 		except:
 			pass
+
+		#Binomial AD test filter
 		het_flag = self.is_het(index)
 		if het_binom_p and het_flag:
 			try:
@@ -154,6 +182,7 @@ class VcfRecord:
 					parsed_genotype_list[4] = 1
 			except:
 				pass
+
 		if not return_flags:
 			return parsed_genotype
 		else:
@@ -180,10 +209,45 @@ class VcfRecord:
 			pass
 		return gq
 
-	def get_percent_AD(self,index=0): #### currently works only on biallelic sites
+	def get_percent_AD_hap(self,index=0): #### currently works only on biallelic sites
+		"""
+		Compute the allele fraction for haploid vcfs. Can account for multiallelic sites.
+		"""
 		percent_AD = 'Undefined'
 		fields = self.genotypes[index]
 		gt_fields = fields.split(':')
+		genotype = self.genotypes[index]
+
+		try:
+			parsed_genotype = int(genotype.split(':')[0])
+			if int(parsed_genotype)>1:
+				print('Using haploid with multiallelic genotype:')
+				print(int(parsed_genotype))
+
+			ad_index = self.get_AD_index()
+			ad = gt_fields[ad_index]
+			split_ad = ad.split(',')
+			
+			print(parsed_genotype)
+			print(split_ad)
+			bottom_sum=sum([float(x) for x in split_ad])
+			percent_AD = float(split_ad[parsed_genotype])/bottom_sum
+			print(bottom_sum)
+			print(percent_AD)
+		except:
+			pass
+		return percent_AD
+
+
+	def get_percent_AD_dip(self,index=0): #### currently works only on biallelic sites
+		"""
+		Compute the allele fraction only for diploid vcfs. Works only on biallelic sites.
+		"""
+
+		percent_AD = 'Undefined'
+		fields = self.genotypes[index]
+		gt_fields = fields.split(':')
+
 		try:
 			ad_index = self.get_AD_index()
 			ad = gt_fields[ad_index]
