@@ -12,7 +12,6 @@ filterGatkGenotypes.py --min_GQ 50 --min_percent_alt_in_AD 0.8 --min_total_DP 10
 ## create whole genome fasta-alignment from VCF (SNPs only) (vcfSnpsToFasta.py)
 Usage example:
 ```
-list_vcf = file containing the name of the input VCF
 python vcfSnpsToFasta.py --max_amb_samples 40 list_vcf > filtered.SNPs.fa
 ```
 
