@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-#Argparse
+#TODO:Argparse
 input_gemma_file=''
 ortholog_data_file='data/reference/C_auris_B8441_C_albicans_SC5314_orthologs.txt'
 data_namegene='data/reference/C_auris_B8441_current_chromosomal_feature.tab'
