@@ -128,8 +128,8 @@ class VcfRecord:
 
 		#Flag that indicates if the sample is diploid.
 		dip_flag = False
- 		if len(parsed_genotype) == 3:
- 			dip_flag = True
+		if len(parsed_genotype) == 3:
+			dip_flag = True
 
 
 		parsed_genotype_list = [parsed_genotype,0,0,0,0]
