@@ -150,7 +150,7 @@ with open(infile, 'r') as vcf_file:
 			print("")
 
 #Output genotype stats
-output_multalelle_stats=infile+'.multiallelic.txt'
+output_multalelle_stats='vcf.multiallelic.txt'
 with open(output_multalelle_stats, 'w') as muti_output:
 	muti_output.write("Sample\t")
 	muti_output.write("\t".join(samples) + '\t')
