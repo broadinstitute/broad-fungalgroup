@@ -3,6 +3,8 @@
 from __future__ import division
 
 import re, sys
+import gzip
+import random
 
 from scipy.stats import binom_test
 
@@ -71,7 +73,7 @@ class VcfRecord:
 			return False
 		else:
 			ref_length = len(self.get_ref())
-			genotype_end = re.search('(\d+)$',genotype)
+			genotype_end = re.search(r'(\d+)$',genotype)
 			alt_length = len(self.get_alt(genotype_end.group(1)))
 			if ref_length > 1 or alt_length > 1:
 				return abs(alt_length - ref_length)
@@ -111,30 +113,13 @@ class VcfRecord:
 # 			return parsed_genotype_list
 
 	def get_genotype(self,index=0,min_gq=0,min_per_ad=float(0),min_tot_dp=0,het_binom_p=False,return_flags=False):  #### working on function to accomodate hets
-		"""
-		Main filtering function. Replaces called GT by . (uncalled) if the variant doesn't pass the required filters.
-		Filters are:
-
-
-		"""
-
 		genotype = self.genotypes[index]
 		parsed_genotype = genotype.split(':')[0]
-
-		#print("The following is the parsed genotype:")
-		#print(parsed_genotype)
-		#print('The following is the genotype:')
-		#print(genotype)
-
-		#Flag that indicates if the sample is diploid.
 		dip_flag = False
 		if len(parsed_genotype) == 3:
 			dip_flag = True
-
-
 		parsed_genotype_list = [parsed_genotype,0,0,0,0]
-
-		#GQ Filter
+		### print(parsed_genotype) ####
 		try:
 			gq = self.get_GQ(parsed_genotype,index)
 			if int(gq) < int(min_gq):
@@ -144,15 +129,8 @@ class VcfRecord:
 				parsed_genotype_list[1] = 1
 		except:
 			pass
-
-		#AD Filter
 		try:
-			#Compute the right allele fraction.
-			if dip_flag == True:
-				percent_ad = self.get_percent_AD_dip(index)
-			else:
-				percent_ad = self.get_percent_AD_hap(index)
-			#Apply the filter
+			percent_ad = self.get_percent_AD(index)
 			if float(percent_ad) < min_per_ad:
 				parsed_genotype = '.'
 				if dip_flag == True:
@@ -160,8 +138,6 @@ class VcfRecord:
 				parsed_genotype_list[2] = 1
 		except:
 			pass
-
-		#Depth coverage filter
 		try:
 			total_dp = self.get_total_DP(index)
 			if int(total_dp) < int(min_tot_dp):
@@ -171,8 +147,6 @@ class VcfRecord:
 				parsed_genotype_list[3] = 1
 		except:
 			pass
-
-		#Binomial AD test filter
 		het_flag = self.is_het(index)
 		if het_binom_p and het_flag:
 			try:
@@ -182,7 +156,6 @@ class VcfRecord:
 					parsed_genotype_list[4] = 1
 			except:
 				pass
-
 		if not return_flags:
 			return parsed_genotype
 		else:
@@ -209,45 +182,10 @@ class VcfRecord:
 			pass
 		return gq
 
-	def get_percent_AD_hap(self,index=0):
-		"""
-		Compute the allele fraction for haploid vcfs. Can account for multiallelic sites.
-		"""
+	def get_percent_AD(self,index=0): #### currently works only on biallelic sites
 		percent_AD = 'Undefined'
 		fields = self.genotypes[index]
 		gt_fields = fields.split(':')
-		genotype = self.genotypes[index]
-
-		try:
-			parsed_genotype = int(genotype.split(':')[0])
-			#if int(parsed_genotype)>1:
-			#	print('Using haploid with multiallelic genotype:')
-			#		print(int(parsed_genotype))
-
-			ad_index = self.get_AD_index()
-			ad = gt_fields[ad_index]
-			split_ad = ad.split(',')
-
-			#print(parsed_genotype)
-			#print(split_ad)
-			bottom_sum=sum([float(x) for x in split_ad])
-			percent_AD = float(split_ad[parsed_genotype])/bottom_sum
-			#print(bottom_sum)
-			#print(percent_AD)
-		except:
-			pass
-		return percent_AD
-
-
-	def get_percent_AD_dip(self,index=0): #### currently works only on biallelic sites
-		"""
-		Compute the allele fraction only for diploid vcfs. Works only on biallelic sites.
-		"""
-
-		percent_AD = 'Undefined'
-		fields = self.genotypes[index]
-		gt_fields = fields.split(':')
-
 		try:
 			ad_index = self.get_AD_index()
 			ad = gt_fields[ad_index]
@@ -344,7 +282,10 @@ class VcfRecord:
 	def get_ref(self):
 		return self.ref
 
-	def get_alt(self,genotype):
+	def get_alt_field(self):
+		return self.alt
+
+	def get_alt(self, genotype): # ignores heterozygous calls
 		if genotype == '0' or genotype == '.' or genotype == '0/0' or genotype == './.' or genotype == '0|0' or genotype == '.|.':
 			return False
 		else:
@@ -353,12 +294,105 @@ class VcfRecord:
 				return 'N'
 			else:
 				split_alt = self.alt.split(',')
-				genotype_end = re.search('(\d+)$',genotype)
+				genotype_end = re.search(r'(\d+)$',genotype)
 				index = int(genotype_end.group(1))-1
 				return split_alt[index]
 
-	def get_alt_field(self):
-		return self.alt
+	def get_alt_degenerate(self, genotype): # accomodates both biallelic and triallelic calls, implements the degenerate base code
+		if genotype == '0' or genotype == '.' or genotype == '0/0' or genotype == './.' or genotype == '0|0' or genotype == '.|.':
+			return False
+		else:
+			ref_base = self.get_ref()
+			alt_base = self.get_alt_field()
+			# print(alt_base)
+			split_genotype = re.split(r"[/|]", genotype)
+			#print(len(set(split_genotype)))
+			#print(len(split_genotype))
+			if len(set(split_genotype)) > 1:
+				if len(split_genotype) == 2:
+					# biallelic degenerate base code
+					if (ref_base == 'A' or alt_base == 'A') and (ref_base == 'C' or alt_base == 'C'):
+						return 'M'
+					elif (ref_base == 'T' or alt_base == 'T') and (ref_base == 'C' or alt_base == 'C'):
+						return 'Y'
+					elif (ref_base == 'A' or alt_base == 'A') and (ref_base == 'T' or alt_base == 'T'):
+						return 'W'
+					elif (ref_base == 'C' or alt_base == 'C') and (ref_base == 'G' or alt_base == 'G'):
+						return 'S'
+					elif (ref_base == 'G' or alt_base == 'G') and (ref_base == 'T' or alt_base == 'T'):
+						return 'K'
+					elif (ref_base == 'G' or alt_base == 'G') and (ref_base == 'A' or alt_base == 'A'):
+						return 'R'
+					else:
+						return 'N'
+					# biallelic code
+					# W = A/T
+					# S = C/G
+					# M = A/C
+					# K = G/T
+					# R = A/G
+					# Y = C/T
+				elif len(split_genotype) == 3:
+					B_bases_list = ['C,G', 'G,C', 'C,T', 'T,C', 'G,T', 'T,G', 'G', 'T', 'C']
+					D_bases_list = ['A,G', 'G,A', 'A,T', 'T,A', 'G,T', 'T,G', 'G', 'T', 'A']
+					H_bases_list = ['C,A', 'A,C', 'C,T', 'T,C', 'A,T', 'T,A', 'A', 'T', 'C']
+					V_bases_list = ['C,G', 'G,C', 'C,A', 'A,C', 'G,A', 'A,G', 'G', 'A', 'C']
+					if ref_base in B_bases_list and alt_base in B_bases_list:
+						return 'B'
+					elif ref_base in D_bases_list and alt_base in D_bases_list:
+						return 'D'
+					elif ref_base in H_bases_list and alt_base in H_bases_list:
+						return 'H'
+					elif ref_base in V_bases_list and alt_base in V_bases_list:
+						return 'V'
+					else:
+						return 'N'
+					# triallelic code
+					# B = C/G/T
+					# D = A/G/T
+					# H = A/C/T
+					# V = A/C/G
+				else:
+					return 'N'
+			else:
+				split_alt = self.alt.split(',')
+				genotype_end = re.search(r'(\d+)$',genotype)
+				index = int(genotype_end.group(1))-1
+				if split_alt[index] == '*':
+					return 'N'
+				else:
+					return split_alt[index]
+				return split_alt[index]
+
+	def get_alt_random(self, genotype): # only for biallelic sites, "flip a coin" to determine if site uses ref or alt heterozygous call
+		if genotype == '0' or genotype == '.' or genotype == '0/0' or genotype == './.' or genotype == '0|0' or genotype == '.|.':
+			return False
+		else:
+			ref_base = self.get_ref()
+			#alt_base = self.get_alt_field()
+			# print(alt_base)
+			split_genotype = re.split(r"[/|]", genotype)
+			# print(len(split_genotype))
+			if len(set(split_genotype)) > 1:
+				if len(split_genotype) == 2:
+					flip = random.randint(0, 1)
+					if flip == 0:
+						return ref_base
+					else:
+						split_alt = self.alt.split(',')
+						genotype_end = re.search(r'(\d+)$',genotype)
+						index = int(genotype_end.group(1))-1
+						if split_alt[index] == '*':
+							return 'N'
+						else:
+							return split_alt[index]
+				else:
+					return 'N' # triallelics will be 'N'
+			else:
+				split_alt = self.alt.split(',')
+				genotype_end = re.search(r'(\d+)$',genotype)
+				index = int(genotype_end.group(1))-1
+				return split_alt[index]
 
 	def get_snpeff_annot(self, alt):
 		fields = self.info.split(';')
@@ -367,7 +401,7 @@ class VcfRecord:
 				ann_fields = field.split(',')
 				## print ann_fields ##
 				for ann_field in ann_fields:
-					m = re.match('(ANN=)*(\w+)',ann_field)
+					m = re.match(r'(ANN=)*(\w+)',ann_field)
 					if m.group(2):
 						if m.group(2) == alt:
 							return ann_field.replace('ANN=','')
@@ -407,7 +441,7 @@ class VcfRecord:
 		AF = False
 		fields = self.info.split(';')
 		for field in fields:
-			m = re.search('AF=([\d\.]+)',field)
+			m = re.search(r'AF=([\d\.]+)',field)
 			try:
 				AF = float(m.group(1))
 			except:
@@ -418,7 +452,7 @@ class VcfRecord:
 		QP = False
 		fields = self.info.split(';')
 		for field in fields:
-			m = re.search('QP=(\d+),(\d+),(\d+),(\d+)',field)
+			m = re.search(r'QP=(\d+),(\d+),(\d+),(\d+)',field)
 			try:
 				QP = m.group(1,2,3,4)
 				QP = [int(q) for q in QP]
@@ -493,27 +527,30 @@ class VcfHeader:
 
 		comment_pattern = re.compile(r"^#")
 
-		with open(vcf_file, 'r') as file:
-			for full_line in file:
-				line = full_line.rstrip()
-				if (re.search(comment_pattern, line)):
-					if (re.match('#CHROM', line)):
-						fields = line.split('\t')
-						### print('found chrom') ###
-						for i in range(9,len(fields)):
-							self.samples.append(fields[i])
-							self.sample_columns[fields[i]] = i
-					elif (re.match('##PILON', line)):
-						self.caller = 'PILON'
-					elif (re.match('##GATK', line)):
-						self.caller = 'GATK'
-					elif (re.match('##SnpEff', line)):
-						self.snpeff = True
-					elif (re.match('##contig',line)):
-						m = re.search('##contig=<ID=([^,]+),',line)
-						self.contigs.append(m.group(1))
-				else:
-					break
+		if vcf_file[-3:] == ".gz":
+			file = gzip.open(vcf_file, "rt")
+		else:
+			file = open(vcf_file)
+		for full_line in file:
+			line = full_line.rstrip()
+			if (re.search(comment_pattern, line)):
+				if (re.match('#CHROM', line)):
+					fields = line.split('\t')
+					for i in range(9,len(fields)):
+						self.samples.append(fields[i])
+						self.sample_columns[fields[i]] = i
+				elif (re.match('##PILON', line)):
+					self.caller = 'PILON'
+				elif (re.match('##GATK', line)):
+					self.caller = 'GATK'
+				elif (re.match('##SnpEff', line)):
+					self.snpeff = True
+				elif (re.match('##contig',line)):
+					m = re.search('##contig=<ID=([^,]+),',line)
+					self.contigs.append(m.group(1))
+			else:
+				break
+		file.close()
 
 		if self.samples == ['SAMPLE']:
 			self.samples = [vcf_file]
